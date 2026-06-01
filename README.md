@@ -1,12 +1,9 @@
 # BSF Population-Genomics Mini-Pipeline (FASTQ → VCF → PopGen)
 
-**Mục tiêu:** làm một pipeline nhỏ bám đúng JD của Entobel — QC → alignment → variant calling → variant filtering → analysis-ready genotypes → heterozygosity / FIS / kinship / PCA / ROH — chạy trên **dữ liệu Black Soldier Fly (*Hermetia illucens*) công khai thật**. Làm xong push GitHub kèm README sạch là vừa lấp gap NGS, vừa có thêm điểm "reproducible bioinformatics" + "curate public BSF datasets" mà JD yêu cầu.
-
-> Thời lượng: 1 cuối tuần **nếu** bạn giới hạn xuống 1 nhiễm sắc thể + vài mẫu + subsample reads. Genome BSF ~1 Gb nên đừng align cả genome với cả chục mẫu trên laptop.
-
+**Mục tiêu: một pipeline nhỏ bám đúng JD của Entobel — QC → alignment → variant calling → variant filtering → analysis-ready genotypes → heterozygosity / FIS / kinship / PCA / ROH — chạy trên **dữ liệu Black Soldier Fly (*Hermetia illucens*) công khai thật**.
 ---
 
-## Bản đồ project ↔ JD (để bạn biết mình đang tick gì)
+## Bản đồ project ↔ JD 
 
 | Bước trong project | Gạch đầu dòng trong JD |
 |---|---|
@@ -24,23 +21,18 @@
 
 ---
 
-## Bước 0 — Môi trường (conda/mamba)
+## Bước 0 — Môi trường (conda)
 
 ```bash
-# Cài mambaforge trước, rồi:
-mamba create -n bsf -c bioconda -c conda-forge \
+#tao moi truong
+conda create -n bsf -c conda-forge -c bioconda \
   sra-tools fastqc fastp multiqc bwa-mem2 samtools bcftools plink2 vcftools seqtk
-mamba activate bsf
 ```
-
-Tạo `environment.yml` (xuất từ env này) và commit cùng repo — đây chính là điểm reproducibility:
 ```bash
-mamba env export --no-builds > environment.yml
+#tao file env.yml
+conda env export --no-builds > environment.yml
 ```
-
----
-
-## Bước 1 — Reference genome (RefSeq BSF, thật)
+## Bước 1 — Reference genome 
 
 Genome chính thức: `GCF_905115235.1 iHerIll2.2.curated.20191125` (Generalovic et al. 2021, Sanger).
 
@@ -54,20 +46,20 @@ samtools faidx bsf_ref.fa
 # Xem tên các chromosome/scaffold:
 cut -f1,2 bsf_ref.fa.fai | sort -k2,2nr | head
 
-# ĐỂ NHẸ MÁY: lấy 1 nhiễm sắc thể lớn (thay <CHROM> bằng tên thật ở dòng trên)
+# Lấy 1 nhiễm sắc thể lớn thay vì cả cụm
 samtools faidx bsf_ref.fa <CHROM> > chr1.fa
 samtools faidx chr1.fa
 bwa-mem2 index chr1.fa      # nếu RAM khỏe & có thời gian thì index cả bsf_ref.fa
 cd ..
 ```
 
-> bwa-mem2 index ngốn RAM theo cỡ genome. Máy yếu → dùng `bwa index`/`bwa mem` thay cho bwa-mem2, hoặc bắt buộc giới hạn 1 chromosome.
+#dùng `bwa index`/`bwa mem` thay cho bwa-mem2, hoặc bắt buộc giới hạn 1 chromosome vì lý do liên quan tới ram và thời gian chạy.
 
 ---
 
-## Bước 2 — Tìm & tải mẫu BSF công khai (đây là kỹ năng "curate public datasets" trong JD)
+## Bước 2 — Tìm & tải mẫu BSF công khai 
 
-BioProject gợi ý: **PRJNA1256126** — 168 genome BSF độ phủ cao, đúng bài population genomics (panel haplotype + imputation). Lý tưởng cho PCA vì có cấu trúc quần thể.
+BioProject: **PRJNA1256126** 
 
 1. Mở **NCBI SRA Run Selector**, gõ `PRJNA1256126`.
 2. Chọn ~6 run `SRR…`, ưu tiên các mẫu từ population/dòng khác nhau để PCA tách nhóm đẹp.
@@ -96,7 +88,69 @@ SAMPLE1,raw/SRRxxxxxx1_1.sub.fq.gz,raw/SRRxxxxxx1_2.sub.fq.gz
 SAMPLE2,raw/SRRxxxxxx2_1.sub.fq.gz,raw/SRRxxxxxx2_2.sub.fq.gz
 ...
 ```
-Viết một script Python 10 dòng đọc CSV này, kiểm tra file tồn tại + cột hợp lệ → đó là "input validation".
+ Input validation:
+"""Validate the sample sheet for the BSF population-genomics pipeline.
+
+Checks performed:
+  1. Required columns are present: sample, fastq_1, fastq_2
+  2. Sample names are non-empty and unique
+  3. Every FASTQ path listed actually exists on disk
+
+Usage:
+  python validate_samplesheet.py samplesheet.csv
+
+Exit code 0 = valid, 1 = at least one problem found
+(so a pipeline / Nextflow can stop early on a bad sheet).
+
+```bash
+import csv
+import sys
+from pathlib import Path
+
+REQUIRED = ["sample", "fastq_1", "fastq_2"]
+
+
+def main(path):
+    errors = []
+    seen = set()
+
+    with open(path, newline="") as fh:
+        reader = csv.DictReader(fh)
+
+        # 1. required columns present?
+        missing = [c for c in REQUIRED if c not in (reader.fieldnames or [])]
+        if missing:
+            sys.exit(f"ERROR: missing column(s): {', '.join(missing)}")
+
+        # 2 & 3. check every row (line 2 = first data row, after the header)
+        for i, row in enumerate(reader, start=2):
+            name = (row["sample"] or "").strip()
+            if not name:
+                errors.append(f"line {i}: empty sample name")
+            elif name in seen:
+                errors.append(f"line {i}: duplicate sample '{name}'")
+            else:
+                seen.add(name)
+
+            for col in ("fastq_1", "fastq_2"):
+                f = (row[col] or "").strip()
+                if not f:
+                    errors.append(f"line {i}: empty {col}")
+                elif not Path(f).is_file():
+                    errors.append(f"line {i}: file not found -> {f}")
+
+    if errors:
+        print("\n".join(errors))
+        sys.exit(f"Sample sheet INVALID ({len(errors)} problem(s)).")
+
+    print(f"Sample sheet OK: {len(seen)} samples, all FASTQ files found.")
+
+
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        sys.exit("Usage: python validate_samplesheet.py samplesheet.csv")
+    main(sys.argv[1])
+
 
 > **Plan B (đảm bảo có kết quả nếu hết thời gian):** một nghiên cứu khác công bố sẵn VCF quần thể BSF đã filter tại `https://genetics.ghpc.au.dk/zexi/BSF/dataset/BSF_filDP.vcf.gz`. Nếu align/calling quá nặng, tải VCF này về và nhảy thẳng tới **Bước 6** (PCA/het/kinship/ROH). Vẫn là kết quả thật trên BSF.
 
