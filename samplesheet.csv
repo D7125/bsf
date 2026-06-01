@@ -1,0 +1,7 @@
+sample,fastq_1,fastq_2
+SRR34006749,raw/SRR34006749_1.fastq.gz,raw/SRR34006749_2.fastq.gz
+SRR34006750,raw/SRR34006750_1.fastq.gz,raw/SRR34006750_2.fastq.gz
+SRR34006751,raw/SRR34006751_1.fastq.gz,raw/SRR34006751_2.fastq.gz
+SRR34006752,raw/SRR34006752_1.fastq.gz,raw/SRR34006752_2.fastq.gz
+SRR34006753,raw/SRR34006753_1.fastq.gz,raw/SRR34006753_2.fastq.gz
+SRR34006754,raw/SRR34006754_1.fastq.gz,raw/SRR34006754_2.fastq.gz
