@@ -1,6 +1,6 @@
 # BSF Population-Genomics Mini-Pipeline (FASTQ → VCF → PopGen)
 
-**Mục tiêu: một pipeline nhỏ bám đúng JD của Entobel — QC → alignment → variant calling → variant filtering → analysis-ready genotypes → heterozygosity / FIS / kinship / PCA / ROH — chạy trên **dữ liệu Black Soldier Fly (*Hermetia illucens*) công khai thật**.
+**Mục tiêu: một pipeline nhỏ bám đúng JD của Entobel — QC → alignment → variant calling → variant filtering → analysis-ready genotypes → heterozygosity / FIS / kinship / PCA / ROH — chạy trên **dữ liệu Black Soldier Fly (*Hermetia illucens*) thực tế **.
 ---
 
 ## Bản đồ project ↔ JD 
