@@ -146,10 +146,12 @@ if __name__ == "__main__":
     main(sys.argv[1])
 
 
-> **Plan B (đảm bảo có kết quả nếu hết thời gian):** một nghiên cứu khác công bố sẵn VCF quần thể BSF đã filter tại `https://genetics.ghpc.au.dk/zexi/BSF/dataset/BSF_filDP.vcf.gz`. Nếu align/calling quá nặng, tải VCF này về và nhảy thẳng tới **Bước 6** (PCA/het/kinship/ROH). Vẫn là kết quả thật trên BSF.
+
+
+
 
 ---
-
+```
 ## Bước 3 — QC (sequencing data QC)
 
 ```bash
