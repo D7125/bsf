@@ -73,15 +73,9 @@ for SRR in SRRxxxxxx1 SRRxxxxxx2 SRRxxxxxx3 SRRxxxxxx4 SRRxxxxxx5 SRRxxxxxx6; do
   gzip ${SRR}_1.fastq ${SRR}_2.fastq
 done
 cd ..
-
-# Subsample cho nhẹ (vd ~2 triệu cặp read/mẫu):
-for SRR in SRRxxxxxx1 ... ; do
-  seqtk sample -s100 raw/${SRR}_1.fastq.gz 2000000 | gzip > raw/${SRR}_1.sub.fq.gz
-  seqtk sample -s100 raw/${SRR}_2.fastq.gz 2000000 | gzip > raw/${SRR}_2.sub.fq.gz
-done
 ```
 
-Tạo **samplesheet.csv** (đúng tinh thần "input validation / sample sheet checking"):
+Tạo **samplesheet.csv**:
 ```csv
 sample,fastq_1,fastq_2
 SAMPLE1,raw/SRRxxxxxx1_1.sub.fq.gz,raw/SRRxxxxxx1_2.sub.fq.gz
@@ -164,7 +158,7 @@ fastqc raw/*.sub.fq.gz -o qc/
 
 for SRR in SRRxxxxxx1 ... ; do
   fastp \
-    -i raw/${SRR}_1.sub.fq.gz -I raw/${SRR}_2.sub.fq.gz \
+    -i raw/${SRR}_1.fq.gz -I raw/${SRR}_2.fq.gz \
     -o trim/${SRR}_1.fq.gz   -O trim/${SRR}_2.fq.gz \
     -j qc/${SRR}.fastp.json  -h qc/${SRR}.fastp.html
 done
